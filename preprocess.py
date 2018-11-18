@@ -2,6 +2,7 @@ import librosa
 import numpy as np
 import os
 import pyworld
+import time
 
 def load_wavs(wav_dir, sr):
     
@@ -249,3 +250,44 @@ def sample_train_data(dataset_A, dataset_B, n_frames = 128):
     train_data_B = np.array(train_data_B)
 
     return train_data_A, train_data_B
+
+
+def preprocess_voice(data_dir, name, sampling_rate = 16000, num_mcep = 36, frame_period = 5.0, n_frames = 1024):
+
+    print('Preprocessing Data...')
+
+    start_time = time.time()
+
+    print("Data Loading...")
+
+    wavs = load_wavs(wav_dir = data_dir, sr = sampling_rate)
+
+    print("Extracting f0 and mcep...")
+    
+    f0s, timeaxes, sps, aps, coded_sps = world_encode_data(wavs = wavs, fs = sampling_rate, frame_period = frame_period, coded_dim = num_mcep)
+
+    del wavs, timeaxes, sps, aps
+
+    log_f0s_mean, log_f0s_std = logf0_statistics(f0s)
+
+    print("Saving f0 Data...")
+    np.savez(os.path.join(data_dir, "log_f0_" + name + '.npz'), mean = log_f0s_mean, std = log_f0s_std)
+
+    del f0s, log_f0s_mean, log_f0s_std
+
+    coded_sps_transposed = transpose_in_list(lst = coded_sps)
+
+    del coded_sps
+
+    coded_sps_norm, coded_sps_mean, coded_sps_std = coded_sps_normalization_fit_transoform(coded_sps = coded_sps_transposed)
+
+    print("Saving mcep Data...")
+    np.savez(os.path.join(data_dir, "mcep_" + name + '.npz'), mean = coded_sps_mean, std = coded_sps_std,)    
+
+    end_time = time.time()
+    time_elapsed = end_time - start_time
+
+    print('Preprocessing Done.')
+
+    print('Time Elapsed for Data Preprocessing: %02d:%02d:%02d' % (time_elapsed // 3600, (time_elapsed % 3600 // 60), (time_elapsed % 60 // 1)))
+

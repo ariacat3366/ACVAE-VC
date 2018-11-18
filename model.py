@@ -33,54 +33,53 @@ class ACVAE(nn.Module):
         self.conv4_logvar = nn.Conv2d(16+self.label_num, 10//2, (9,5), (9,1), padding=(1, 2))
         
         # Decoder
-        self.upconv1 = nn.ConvTranspose2d(5+self.label_num, 16, (9,5), (9,1))
+        self.upconv1 = nn.ConvTranspose2d(5+self.label_num, 16, (9,5), (9,1), padding=(0, 2))
         self.upconv1_bn = nn.BatchNorm2d(16)
-        self.upconv1_gated = nn.ConvTranspose2d(5+self.label_num, 16, (9,5), (9,1))
+        self.upconv1_gated = nn.ConvTranspose2d(5+self.label_num, 16, (9,5), (9,1), padding=(0, 2))
         self.upconv1_gated_bn = nn.BatchNorm2d(16)
         self.upconv1_sigmoid = nn.Sigmoid()
         
-        self.upconv2 = nn.ConvTranspose2d(16+self.label_num, 16, (4,8), (2,2))
+        self.upconv2 = nn.ConvTranspose2d(16+self.label_num, 16, (4,8), (2,2), padding=(1, 3))
         self.upconv2_bn = nn.BatchNorm2d(16)
-        self.upconv2_gated = nn.ConvTranspose2d(16+self.label_num, 16, (4,8), (2,2))
+        self.upconv2_gated = nn.ConvTranspose2d(16+self.label_num, 16, (4,8), (2,2), padding=(1, 3))
         self.upconv2_gated_bn = nn.BatchNorm2d(16)
         self.upconv2_sigmoid = nn.Sigmoid()
         
-        self.upconv3 = nn.ConvTranspose2d(16+self.label_num, 8, (4,8), (2,2))
+        self.upconv3 = nn.ConvTranspose2d(16+self.label_num, 8, (4,8), (2,2), padding=(1, 3))
         self.upconv3_bn = nn.BatchNorm2d(8)
-        self.upconv3_gated = nn.ConvTranspose2d(16+self.label_num, 8, (4,8), (2,2))
+        self.upconv3_gated = nn.ConvTranspose2d(16+self.label_num, 8, (4,8), (2,2), padding=(1, 3))
         self.upconv3_gated_bn = nn.BatchNorm2d(8)
         self.upconv3_sigmoid = nn.Sigmoid()
         
-        self.upconv4_mu = nn.ConvTranspose2d(8+self.label_num, 2//2, (9,5), (1,1))
-        self.upconv4_logvar = nn.ConvTranspose2d(8+self.label_num, 2//2, (9,5), (1,1))
+        self.upconv4_mu = nn.ConvTranspose2d(8+self.label_num, 2//2, (3,9), (1,1), padding=(1, 4))
+        self.upconv4_logvar = nn.ConvTranspose2d(8+self.label_num, 2//2, (3,9), (1,1), padding=(1, 4))
         
         # Auxiliary Classifier
-        self.ac_conv1 = nn.Conv2d(1, 8, (4,4), (2,2))
+        self.ac_conv1 = nn.Conv2d(1, 8, (4,4), (2,2), padding=(1, 1))
         self.ac_conv1_bn = nn.BatchNorm2d(8)
-        self.ac_conv1_gated = nn.Conv2d(1, 8, (4,4), (2,2))
+        self.ac_conv1_gated = nn.Conv2d(1, 8, (4,4), (2,2), padding=(1, 1))
         self.ac_conv1_gated_bn = nn.BatchNorm2d(8)
         self.ac_conv1_sigmoid = nn.Sigmoid()
         
-        self.ac_conv2 = nn.Conv2d(8, 16, (4,4), (2,2))
+        self.ac_conv2 = nn.Conv2d(8, 16, (4,4), (2,2), padding=(1, 1))
         self.ac_conv2_bn = nn.BatchNorm2d(16)
-        self.ac_conv2_gated = nn.Conv2d(8, 16, (4,4), (2,2))
+        self.ac_conv2_gated = nn.Conv2d(8, 16, (4,4), (2,2), padding=(1, 1))
         self.ac_conv2_gated_bn = nn.BatchNorm2d(16)
         self.ac_conv2_sigmoid = nn.Sigmoid()
         
-        self.ac_conv3 = nn.Conv2d(16, 32, (4,4), (2,2))
+        self.ac_conv3 = nn.Conv2d(16, 32, (4,4), (2,2), padding=(1, 1))
         self.ac_conv3_bn = nn.BatchNorm2d(32)
-        self.ac_conv3_gated = nn.Conv2d(16, 32, (4,4), (2,2))
+        self.ac_conv3_gated = nn.Conv2d(16, 32, (4,4), (2,2), padding=(1, 1))
         self.ac_conv3_gated_bn = nn.BatchNorm2d(32)
         self.ac_conv3_sigmoid = nn.Sigmoid()
         
-        self.ac_conv4 = nn.Conv2d(32, 16, (4,4), (2,2))
+        self.ac_conv4 = nn.Conv2d(32, 16, (4,4), (2,2), padding=(1, 1))
         self.ac_conv4_bn = nn.BatchNorm2d(16)
-        self.ac_conv4_gated = nn.Conv2d(32, 16, (4,4), (2,2))
+        self.ac_conv4_gated = nn.Conv2d(32, 16, (4,4), (2,2), padding=(1, 1))
         self.ac_conv4_gated_bn = nn.BatchNorm2d(16)
         self.ac_conv4_sigmoid = nn.Sigmoid()
         
-        self.ac_conv5 = nn.Conv2d(16, self.label_num, (1,4), (1,2))
-        self.ac_fc5 = nn.Linear(self.label_num * 32, self.label_num)
+        self.ac_conv5 = nn.Conv2d(16, self.label_num, (1,4), (1,2), padding=(0, 1))
 
     def encode(self, x, label):
        
@@ -103,24 +102,17 @@ class ACVAE(nn.Module):
 
     def decode(self, z, label):
         
-        print(z.shape)
         h5_ = self.upconv1_bn(self.upconv1(self.concat_label(z, label)))
         h5_gated = self.upconv1_gated_bn(self.upconv1(self.concat_label(z, label)))
         h5 = torch.mul(h5_, self.upconv1_sigmoid(h5_gated)) 
-        
-        print(h5.shape)
         
         h6_ = self.upconv2_bn(self.upconv2(self.concat_label(h5, label)))
         h6_gated = self.upconv2_gated_bn(self.upconv2(self.concat_label(h5, label)))
         h6 = torch.mul(h6_, self.upconv2_sigmoid(h6_gated)) 
         
-        print(h6.shape)
-        
         h7_ = self.upconv3_bn(self.upconv3(self.concat_label(h6, label)))
         h7_gated = self.upconv3_gated_bn(self.upconv3(self.concat_label(h6, label)))
         h7 = torch.mul(h7_, self.upconv3_sigmoid(h7_gated)) 
-        
-        print(h7.shape)
         
         h8_mu = self.upconv4_mu(self.concat_label(h7, label))
         h8_logvar = self.upconv4_logvar(self.concat_label(h7, label))
@@ -128,6 +120,8 @@ class ACVAE(nn.Module):
         return h8_mu, h8_logvar
     
     def classify(self, x):
+        
+        x = x[:,:,:16]
         
         h9_ = self.ac_conv1_bn(self.ac_conv1(x))
         h9_gated = self.ac_conv1_gated_bn(self.ac_conv1_gated(x))
@@ -153,8 +147,6 @@ class ACVAE(nn.Module):
     def concat_label(self, x, label):
         shape = x.shape
         label_layer = torch.zeros(shape[0], self.label_num, shape[2], shape[3])
-        print(label)
-        print(label[0])
         for i in range(len(x)):
             label_layer[i, int(label[i])] = torch.ones(shape[2], shape[3])
         label_layer = label_layer.to(self.device)
@@ -178,21 +170,29 @@ class ACVAE(nn.Module):
         
         x = x.to(self.device)
         label = label.to(self.device)
-
+        
         recon_x, mu, logvar, p_label = self.forward(x, label)
         t_label = self.classify(x)
-
+        
         # 1
-        BCE = F.binary_cross_entropy(recon_x, x, reduction='sum')
+        # BCE = F.binary_cross_entropy(recon_x, x, reduction='sum')
+        L1 = torch.mean(torch.abs(recon_x - x))
         KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
-
+        
+        # create onehot label
+        shape = x.shape
+        label_ = torch.zeros(shape[0], self.label_num)
+        for i in range(len(x)):
+            label_[i, int(label[i])] = 1
+        label_.to(self.device) 
+        
         # 2
-        AC_1 = F.binary_cross_entropy(label_, p_label) 
+        AC_1 = F.binary_cross_entropy(p_label, label_) 
 
         # 3
-        AC_2 = F.binary_cross_entropy(label_, t_label) 
+        AC_2 = F.binary_cross_entropy(t_label, label_) 
 
-        return BCE + KLD + AC_1 + AC_2
+        return L1 + KLD + AC_1 + AC_2
 
     def predict(self, x, label, label_target):
         
