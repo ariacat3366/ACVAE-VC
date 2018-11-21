@@ -6,8 +6,8 @@ class ACVAE(nn.Module):
     def __init__(self):
         
         self.label_num = 4
-        self.lambda_1 = 0.2
-        self.lambda_2 = 0.4
+        self.lambda_1 = 0.02
+        self.lambda_2 = 0.01
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
         super(ACVAE, self).__init__()
@@ -141,7 +141,7 @@ class ACVAE(nn.Module):
         h12_gated = self.ac_conv4_gated_bn(self.ac_conv4_gated(h11))
         h12 = torch.mul(h12_, self.ac_conv4_sigmoid(h12_gated))
         
-        h13_ = F.softmax(self.ac_conv5(h12), dim=-1)
+        h13_ = F.softmax(self.ac_conv5(h12), dim=1)
         h13 = torch.prod(h13_, dim=-1, keepdim=True)
         
         return h13.view(-1, self.label_num)
@@ -166,6 +166,9 @@ class ACVAE(nn.Module):
         z_dec = self.reparameterize(mu_dec, logvar_dec)
         p_label = self.classify(z_dec)
         return z_dec, mu_enc, logvar_enc, p_label
+    
+    def reconstruction_loss(self, x_reconstructed, x):
+        return nn.BCELoss(size_average=False)(x_reconstructed, x) / x.size(0)
                    
     # Reconstruction + KL divergence losses summed over all elements and batch
     def calc_loss(self, x, label):
@@ -178,12 +181,14 @@ class ACVAE(nn.Module):
         
         # 1
         # BCE = F.binary_cross_entropy(recon_x, x, reduction='sum')
-        # L1 = torch.mean(torch.abs(recon_x - x))
-        l1_loss = nn.SmoothL1Loss().to(self.device)
-        L1 = l1_loss(recon_x, x)
+        # BCE = self.reconstruction_loss(recon_x, x)
+        L1 = torch.mean(torch.abs(recon_x - x))
+        # l1_loss = nn.SmoothL1Loss().to(self.device)
+        # L1 = l1_loss(recon_x, x)
+        # L1 = torch.sum(torch.abs(recon_x - x))
         
-        # KLD = -0.5 * torch.mean(1 + logvar - mu.pow(2) - logvar.exp())
-        KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+        KLD = -0.5 * torch.mean(1 + logvar - mu.pow(2) - logvar.exp())
+        # KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
         
         # create onehot label
         shape = x.shape
@@ -198,7 +203,7 @@ class ACVAE(nn.Module):
         # 3
         AC_2 = self.lambda_2 * F.binary_cross_entropy(t_label, label_) 
 
-        return L1 + KLD + AC_1 + AC_2, [L1.item(), KLD.item(), AC_1.item(), AC_2.item()]
+        return BCE + KLD + AC_1 + AC_2, [BCE.item(), KLD.item(), AC_1.item(), AC_2.item()]
 
     def predict(self, x, label, label_target):
         
