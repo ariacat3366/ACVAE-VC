@@ -2,6 +2,7 @@ import librosa
 import numpy as np
 import os
 import pyworld
+import pysptk
 import time
 
 def load_wavs(wav_dir, sr):
@@ -24,15 +25,17 @@ def load_wavs(wav_dir, sr):
     return wavs
 
 
-def world_decompose(wav, fs, frame_period = 5.0):
+def world_decompose(wav, fs, frame_period = 5.0, num_mcep=36):
 
     # Decompose speech signal into f0, spectral envelope and aperiodicity using WORLD
     wav = wav.astype(np.float64)
     f0, timeaxis = pyworld.harvest(wav, fs, frame_period = frame_period, f0_floor = 71.0, f0_ceil = 800.0)
     sp = pyworld.cheaptrick(wav, f0, timeaxis, fs)
     ap = pyworld.d4c(wav, f0, timeaxis, fs)
+    alpha = pysptk.util.mcepalpha(fs)
+    mc = pysptk.sp2mc(sp, order=num_mcep-1, alpha=alpha)
 
-    return f0, timeaxis, sp, ap
+    return f0, timeaxis, sp, ap, mc
 
 def world_encode_spectral_envelop(sp, fs, dim = 24):
 
@@ -43,34 +46,34 @@ def world_encode_spectral_envelop(sp, fs, dim = 24):
 
     return coded_sp
 
-def world_decode_spectral_envelop(coded_sp, fs):
+def world_decode_mc(mc, fs):
 
     fftlen = pyworld.get_cheaptrick_fft_size(fs)
     #coded_sp = coded_sp.astype(np.float32)
     #coded_sp = np.ascontiguousarray(coded_sp)
-    decoded_sp = pyworld.decode_spectral_envelope(coded_sp, fs, fftlen)
+    alpha = pysptk.util.mcepalpha(fs)
+    sp = pysptk.mc2sp(mc, alpha, fftlen)
+    # decoded_sp = pyworld.decode_spectral_envelope(coded_sp, fs, fftlen)
 
-    return decoded_sp
+    return sp
 
-
-def world_encode_data(wavs, fs, frame_period = 5.0, coded_dim = 24):
+def world_encode_data(wavs, fs, frame_period = 5.0, num_mcep = 36):
 
     f0s = list()
     timeaxes = list()
     sps = list()
     aps = list()
-    coded_sps = list()
+    mcs = list()
 
     for wav in wavs:
-        f0, timeaxis, sp, ap = world_decompose(wav = wav, fs = fs, frame_period = frame_period)
-        coded_sp = world_encode_spectral_envelop(sp = sp, fs = fs, dim = coded_dim)
+        f0, timeaxis, sp, ap, mc = world_decompose(wav = wav, fs = fs, frame_period = frame_period, num_mcep=num_mcep)
         f0s.append(f0)
         timeaxes.append(timeaxis)
         sps.append(sp)
         aps.append(ap)
-        coded_sps.append(coded_sp)
+        mcs.append(mc)
 
-    return f0s, timeaxes, sps, aps, coded_sps
+    return f0s, timeaxes, sps, aps, mcs
 
 
 def transpose_in_list(lst):
@@ -92,10 +95,10 @@ def world_decode_data(coded_sps, fs):
     return decoded_sps
 
 
-def world_speech_synthesis(f0, decoded_sp, ap, fs, frame_period):
+def world_speech_synthesis(f0, sp, ap, fs, frame_period):
 
     #decoded_sp = decoded_sp.astype(np.float64)
-    wav = pyworld.synthesize(f0, decoded_sp, ap, fs, frame_period)
+    wav = pyworld.synthesize(f0, sp, ap, fs, frame_period)
     # Librosa could not save wav if not doing so
     wav = wav.astype(np.float32)
 
@@ -113,17 +116,17 @@ def world_synthesis_data(f0s, decoded_sps, aps, fs, frame_period):
     return wavs
 
 
-def coded_sps_normalization_fit_transoform(coded_sps):
+def mcs_normalization_fit_transoform(mcs):
 
-    coded_sps_concatenated = np.concatenate(coded_sps, axis = 1)
-    coded_sps_mean = np.mean(coded_sps_concatenated, axis = 1, keepdims = True)
-    coded_sps_std = np.std(coded_sps_concatenated, axis = 1, keepdims = True)
+    mcs_concatenated = np.concatenate(mcs, axis = 1)
+    mcs_mean = np.mean(mcs_concatenated, axis = 1, keepdims = True)
+    mcs_std = np.std(mcs_concatenated, axis = 1, keepdims = True)
 
-    coded_sps_normalized = list()
-    for coded_sp in coded_sps:
-        coded_sps_normalized.append((coded_sp - coded_sps_mean) / coded_sps_std)
+    mcs_normalized = list()
+    for mc in mcs:
+        mcs_normalized.append((mc - mcs_mean) / mcs_std)
     
-    return coded_sps_normalized, coded_sps_mean, coded_sps_std
+    return mcs_normalized, mcs_mean, mcs_std
 
 def coded_sps_normalization_transoform(coded_sps, coded_sps_mean, coded_sps_std):
 
@@ -264,7 +267,7 @@ def preprocess_voice(data_dir, name, sampling_rate = 16000, num_mcep = 36, frame
 
     print("Extracting f0 and mcep...")
     
-    f0s, timeaxes, sps, aps, coded_sps = world_encode_data(wavs = wavs, fs = sampling_rate, frame_period = frame_period, coded_dim = num_mcep)
+    f0s, timeaxes, sps, aps, mcs = world_encode_data(wavs = wavs, fs = sampling_rate, frame_period = frame_period, num_mcep=num_mcep)
 
     del wavs, timeaxes, sps, aps
 
@@ -275,14 +278,14 @@ def preprocess_voice(data_dir, name, sampling_rate = 16000, num_mcep = 36, frame
 
     del f0s, log_f0s_mean, log_f0s_std
 
-    coded_sps_transposed = transpose_in_list(lst = coded_sps)
+    mcs_t = transpose_in_list(lst = mcs)
 
-    del coded_sps
+    del mcs
 
-    coded_sps_norm, coded_sps_mean, coded_sps_std = coded_sps_normalization_fit_transoform(coded_sps = coded_sps_transposed)
+    mcs_norm, mcs_mean, mcs_std = mcs_normalization_fit_transoform(mcs = mcs_t)
 
     print("Saving mcep Data...")
-    np.savez(os.path.join(data_dir, "mcep_" + name + '.npz'), mean = coded_sps_mean, std = coded_sps_std,)    
+    np.savez(os.path.join(data_dir, "mcep_" + name + '.npz'), mean = mcs_mean, std = mcs_std)    
 
     end_time = time.time()
     time_elapsed = end_time - start_time

@@ -203,7 +203,7 @@ class ACVAE(nn.Module):
         # 3
         AC_2 = self.lambda_2 * F.binary_cross_entropy(t_label, label_) 
 
-        return BCE + KLD + AC_1 + AC_2, [BCE.item(), KLD.item(), AC_1.item(), AC_2.item()]
+        return L1 + KLD + AC_1 + AC_2, [L1.item(), KLD.item(), AC_1.item(), AC_2.item()]
 
     def predict(self, x, label, label_target):
         
