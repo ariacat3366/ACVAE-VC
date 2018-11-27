@@ -6,8 +6,8 @@ class ACVAE(nn.Module):
     def __init__(self):
         
         self.label_num = 4
-        self.lambda_1 = 0.02
-        self.lambda_2 = 0.01
+        self.lambda_1 = 30
+        self.lambda_2 = 30
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
         super(ACVAE, self).__init__()
@@ -182,13 +182,13 @@ class ACVAE(nn.Module):
         # 1
         # BCE = F.binary_cross_entropy(recon_x, x, reduction='sum')
         # BCE = self.reconstruction_loss(recon_x, x)
-        L1 = torch.mean(torch.abs(recon_x - x))
+        # L1 = torch.mean(torch.abs(recon_x - x))
         # l1_loss = nn.SmoothL1Loss().to(self.device)
         # L1 = l1_loss(recon_x, x)
-        # L1 = torch.sum(torch.abs(recon_x - x))
+        L1 = torch.sum(torch.abs(recon_x - x))
         
-        KLD = -0.5 * torch.mean(1 + logvar - mu.pow(2) - logvar.exp())
-        # KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+        # KLD = -0.5 * torch.mean(1 + logvar - mu.pow(2) - logvar.exp())
+        KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
         
         # create onehot label
         shape = x.shape
