@@ -3,11 +3,11 @@ import torch.nn as nn
 import torch.nn.functional as F
         
 class ACVAE(nn.Module):
-    def __init__(self):
+    def __init__(self, nb_label, lambda_p, lambda_s):
         
-        self.label_num = 4
-        self.lambda_1 = 30
-        self.lambda_2 = 30
+        self.label_num = nb_label
+        self.lambda_1 = lambda_p
+        self.lambda_2 = lambda_s
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
         super(ACVAE, self).__init__()
