@@ -217,4 +217,3 @@ class ACVAE(nn.Module):
         z_dec = self.reparameterize(mu_dec, logvar_dec)
         
         return z_dec
-    
