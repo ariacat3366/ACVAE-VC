@@ -19,6 +19,7 @@ def load_wavs(wav_dir, sr):
         """
         file_path = os.path.join(wav_dir, file)
         wav, _ = librosa.load(file_path, sr = sr, mono = True)
+        wav = librosa.util.normalize(wav, norm=np.inf, axis=None)
         #wav = wav.astype(np.float64)
         wavs.append(wav)
 
